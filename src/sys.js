@@ -3,3 +3,5 @@
  * All rights reserved.
  *
  */
+
+var undefined;
