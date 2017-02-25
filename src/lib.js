@@ -3,7 +3,7 @@
  */
 
 
-/** 函数式编程支持：--------------------------------------------------------------- */
+/** Functions：--------------------------------------------------------------- */
 var Function_prototype = Function.prototype;
 var _call = Function_prototype.call;
 var _apply = Function_prototype.apply;
@@ -33,7 +33,18 @@ var call = func(_call);
  */
 var apply = func(_apply);
 
-/** Array: ---------------------------------------------------------------------- */
+/**
+ * isFunction(any)
+ *    判断目标是否是函数。
+ */
+function isFunction(any) {
+  return typeof any === 'function';
+}
+
+
+/** Object: ----------------------------------------------------------------- */
+
+/** Array: ------------------------------------------------------------------ */
 
 /**
  * isArray(any)
