@@ -65,7 +65,7 @@ var removeTask;
   global.setInterval = patch(global.setInterval);
   global.setImmediate = patch(global.setImmediate);
 
-  global.requestAnimationFrame = global.patch(requestAnimationFrame);
+  global.requestAnimationFrame = patch(requestAnimationFrame);
 
   global.alert = wrap(global.alert);
   global.prompt = wrap(global.prompt);
