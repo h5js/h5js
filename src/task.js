@@ -16,7 +16,8 @@ var appendTask;
 var removeTask;
 
 (function (global) {
-  var tasks;
+  var tasks = [];
+  var index = 0;
 
   appendTask = function (task) {
     if (seek(tasks, task) < 0) {
@@ -25,14 +26,17 @@ var removeTask;
   };
 
   removeTask = function (task) {
-    var index = seek(tasks, task);
-    if (index >= 0) {
-      splice(tasks, index, 1);
+    var i = seek(tasks, task);
+    if (i >= 0) {
+      splice(tasks, i, 1);
+      if (i <= index)
+        index--;
     }
   };
 
   function doTasks() {
-    for (var i = 0, task; task = tasks[i]; i++) {
+    var task;
+    for (index = 0; task = tasks[index]; index++) {
       task();
     }
   }
@@ -42,8 +46,8 @@ var removeTask;
    *    创建补丁函数, 强制其第一个参数为替身函数
    */
   function patch(func) {
-    return function(arg) {
-      if(isFunction(arg)) {
+    return function (arg) {
+      if (isFunction(arg)) {
         arguments[0] = wrap(arg);
       }
       return apply(func, this, arguments);
@@ -54,8 +58,8 @@ var removeTask;
    * wrap(func)
    *   创建替身函数，该函数先运行任务列表，再执行原函数功能。
    */
-  function wrap(func){
-    return function() {
+  function wrap(func) {
+    return function () {
       doTasks();
       return apply(func, this, arguments);
     }
