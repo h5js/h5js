@@ -2,6 +2,9 @@
  *
  */
 
+/** Constants: -------------------------------------------------------------- */
+var undefined;
+var nil = null;
 
 /** Functions：--------------------------------------------------------------- */
 var Function_prototype = Function.prototype;
@@ -43,6 +46,13 @@ function isFunction(any) {
 
 
 /** Object: ----------------------------------------------------------------- */
+/**
+ * isObject(any)
+ *    判断目标是否是非函数的对象。
+ */
+function isObject(any) {
+  return  typeof any === 'object' && any !== nil;
+}
 
 /** Array: ------------------------------------------------------------------ */
 var Array_prototype = Array.prototype;
