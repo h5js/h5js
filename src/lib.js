@@ -46,6 +46,7 @@ function isFunction(any) {
 
 
 /** Object: ----------------------------------------------------------------- */
+
 /**
  * isObject(any)
  *    判断目标是否是非函数的对象。
@@ -53,6 +54,12 @@ function isFunction(any) {
 function isObject(any) {
   return  typeof any === 'object' && any !== nil;
 }
+
+/**
+ * defineProperty(obj, prop, desc)
+ */
+var defineProperty = Object.defineProperty;
+
 
 /** Array: ------------------------------------------------------------------ */
 var Array_prototype = Array.prototype;
