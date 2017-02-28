@@ -46,7 +46,6 @@ function isFunction(any) {
 
 
 /** Object: ----------------------------------------------------------------- */
-var Object_prototype = Object.prototype;
 
 /**
  * isObject(any)
@@ -59,6 +58,7 @@ function isObject(any) {
 /**
  * defineProperty(obj, prop, desc)
  */
+var defineProperty = Object.defineProperty;
 
 
 /** Array: ------------------------------------------------------------------ */
