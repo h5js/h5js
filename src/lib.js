@@ -119,7 +119,16 @@ function peak(ary) {
 var reverse = func(Array_prototype.reverse);
 
 /**
+ * forEach(ary, func)
+ */
+var forEach = func(Array_prototype.forEach);
+
+/**
  *  map(ary, func)
  */
 var map = func(Array_prototype.map);
 
+/**
+ * reduce(ary, func, [initialValue])
+ */
+var reduce = func(Array_prototype.reduce);
