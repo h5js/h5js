@@ -132,3 +132,86 @@ var map = func(Array_prototype.map);
  * reduce(ary, func, [initialValue])
  */
 var reduce = func(Array_prototype.reduce);
+
+/** Encoding: ------------------------------------------------------------------ */
+
+/**
+ * base64(src)
+ */
+var base64;
+
+/**
+ * vlq64(...numbers)
+ */
+var vlq64;
+
+(function(){
+  var char64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+  base64 = function (src) {
+    var desIdx = 0, last = 0, gap = 0, des = "";
+    for (var srcIdx = 0, srcLen = src.length; srcIdx < srcLen; srcIdx++) {
+      var code = src.codePointAt(srcIdx);
+      if (code < 0x80) {
+        gap = (gap + 2) & 7;
+        des += char64[(last << (8 - gap) | code >> gap) & 0x3F];
+        if (gap < 6) {
+          last = code;
+          desIdx++;
+        }
+        else {
+          des += char64[code & 0x3F];
+          last = gap = 0;
+          desIdx += 2;
+        }
+      }
+      else {
+        var sixLen = 1 + (code >= 0x80) + (code >= 0x800) + (code >= 0x10000);
+        if (sixLen > 3) srcIdx++;
+        var byte = (0xF00 >> sixLen) & 0xF0;
+        var bitIdx = (sixLen << 2) + (sixLen << 1); // sixLen*6;
+        while (bitIdx) {
+          bitIdx -= 6;
+          if (!byte) byte = 0x80;
+          byte |= code >> bitIdx & 0x3F;
+
+          gap = (gap + 2) & 7;
+          des += char64[(last << (8 - gap) | byte >> gap) & 0x3F];
+          if (gap < 6) {
+            last = byte;
+            desIdx++;
+          }
+          else {
+            des += char64[byte & 0x3F];
+            last = gap = 0;
+            desIdx += 2;
+          }
+          byte = 0;
+        }
+      }
+    }
+    if (gap) {
+      des += char64[last << (6 - gap) & 0x3F];
+      for (; gap < 6; gap += 2) {
+        des += "=";
+      }
+    }
+    return des;
+  };
+
+  vlq64 = function() {
+    var vlq = "", args = arguments;
+    for (var i = 0, len = args.length; i < len; i++) {
+      var num = args[i];
+      num = num < 0 ? -num << 1 | 1 : num << 1;
+      do {
+        var byte = num & 31;
+        if (num = num >>> 5)
+          byte = byte | 32;
+        vlq += char64[byte];
+      } while (num);
+    }
+    return vlq;
+  }
+
+})();
