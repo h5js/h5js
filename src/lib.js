@@ -52,7 +52,7 @@ function isFunction(any) {
  *    判断目标是否是非函数的对象。
  */
 function isObject(any) {
-  return  typeof any === 'object' && any !== nil;
+  return  Object(any) === any;    // typeof any === 'object' && any !== nil;
 }
 
 /**
