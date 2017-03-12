@@ -18,7 +18,7 @@ var detachVary;
   var interval;
 
   attachVary = function (it, on, me) {
-    if((isObject(it)) && (isFunction(on) || isObject(me))) {
+    if(isObject(it) && (isFunction(on) || isObject(me))) {
       var length, i, vary;
       for (length = i = varies.length; (vary = varies[--i]) && (vary[0] !== it || vary[1] !== on || vary[2] !== me););
       if (i < 0) {
@@ -31,7 +31,7 @@ var detachVary;
   };
 
   detachVary = function (it, on, me) {
-    if((isObject(it)) && (isFunction(on) || isObject(me))) {
+    if(isObject(it) && (isFunction(on) || isObject(me))) {
       var length, i, vary;
       for (length = i = varies.length; (vary = varies[--i]) && (vary[0] !== it || vary[1] !== on || vary[2] !== me););
       if (i >= 0) {
