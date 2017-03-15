@@ -52,7 +52,7 @@ function isFunction(any) {
  *    判断目标是否是非函数的对象。
  */
 function isObject(any) {
-  return  Object(any) === any;    // typeof any === 'object' && any !== nil;
+  return Object(any) === any;    // typeof any === 'object' && any !== nil;
 }
 
 /**
@@ -60,6 +60,26 @@ function isObject(any) {
  */
 var defineProperty = Object.defineProperty;
 
+/** String: ----------------------------------------------------------------- */
+
+/**
+ * isString(any)
+ */
+var String_prototype = String.prototype;
+
+function isString(any) {
+  return typeof any === 'string';
+}
+
+/**
+ * indexOf(str, substr)
+ */
+var indexOf = func(String_prototype.indexOf);
+
+/**
+ * replace(str, regexp/substr, newStr/function)
+ */
+var replace = func(String_prototype.replace);
 
 /** Array: ------------------------------------------------------------------ */
 var Array_prototype = Array.prototype;
@@ -133,6 +153,32 @@ var map = func(Array_prototype.map);
  */
 var reduce = func(Array_prototype.reduce);
 
+/** RegExp: -------------------------------------------------------------------- */
+var RegExp_prototype = RegExp.prototype;
+
+/**
+ * scan(regexp, str): matches[]
+ */
+var scan = func(RegExp_prototype.exec);
+
+/** Error: --------------------------------------------------------------------- */
+var _Error = Error;
+
+/**
+ * Error(msg, ...args)
+ */
+Error = bind(function (msg) {
+    if(msg) {
+      var args = arguments, length = args.length, i = 1;
+      msg = replace(msg, this, function(s) {
+        return i < length ? args[i++] : s;
+      });
+    }
+    return _Error(msg);
+  },
+  /%[sd]/g
+);
+
 /** Encoding: ------------------------------------------------------------------ */
 
 /**
@@ -145,7 +191,7 @@ var base64;
  */
 var vlq64;
 
-(function(){
+(function () {
   var char64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
   base64 = function (src) {
@@ -199,7 +245,7 @@ var vlq64;
     return des;
   };
 
-  vlq64 = function() {
+  vlq64 = function () {
     var vlq = "", args = arguments;
     for (var i = 0, len = args.length; i < len; i++) {
       var num = args[i];
