@@ -249,7 +249,7 @@
           json[i++] = key + ':' + toJson(any[key]);
         }
         else {
-          json[i++] = "'" + JSON.stringify(key) + "':" + toJson(any[key]);
+          json[i++] = JSON.stringify(key) + ":" + toJson(any[key]);
         }
       }
       json = '{' + join(json) + '}';
