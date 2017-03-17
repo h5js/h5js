@@ -55,6 +55,9 @@
     return ary[ary.length - 1];
   }
 
+  var RegExp_prototype = RegExp.prototype;
+  var _test = RegExp_prototype.test;
+
 
   /** TESTING ----------------------------------------------------------------------------------------------------------
    *
@@ -187,17 +190,17 @@
         text = topic;
       }
       else {
-        text = topic || 'expected ' + json(me.actual) + ' ' + op[assert];
+        text = topic || 'expected ' + toJson(me.actual) + ' ' + op[assert];
         if(op[2]) {
-          text += ' ' + json(me.value);
+          text += ' ' + toJson(me.value);
         }
       }
       text += '%c';
     }
     else {
-      text = (topic ? topic + '\n  %c' : '') + 'expected ' + json(me.actual) + ' ' + op[!me._not&1];
+      text = (topic ? topic + '\n  %c' : '') + 'expected ' + toJson(me.actual) + ' ' + op[!me._not&1];
       if(op[2]) {
-        text += ' ' + json(me.value);
+        text += ' ' + toJson(me.value);
       }
       if(topic)
         tail = 'color:gray';
@@ -216,7 +219,45 @@
 
   var ident = partial(replace, [,/^/gm]);
 
-  function json(any) {
-    return JSON.stringify(any);
+  var isIdx = bind(_test, /^\d+$/);
+  var isIdentifier = bind(_test, /^[A-Za-z_$][\w$]*$/);
+
+  function toJson(any) {
+    var json, i, key;
+    if(isFunction(any)) {
+      json = any.toString();
+    }
+    else if(isArray(any)) {
+      json = []; i = 0;
+      for(key in any) {
+        if(isIdx(key)) {
+          json[i++] = toJson(any[key]);
+        }
+        else if(isIdentifier(key)) {
+          json[i++] = key + ':' + toJson(any[key]);
+        }
+        else {
+          json[i++] = "'" + JSON.stringify(key) + "':" + toJson(any[key]);
+        }
+      }
+      json = '[' + join(json) + ']';
+    }
+    else if(isObject(any)) {
+      json = []; i = 0;
+      for(key in any) {
+        if(isIdentifier(key)) {
+          json[i++] = key + ':' + toJson(any[key]);
+        }
+        else {
+          json[i++] = "'" + JSON.stringify(key) + "':" + toJson(any[key]);
+        }
+      }
+      json = '{' + join(json) + '}';
+    }
+    else {
+      json = JSON.stringify(any);
+    }
+    return json;
   }
+
 })();
