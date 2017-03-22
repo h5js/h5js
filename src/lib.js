@@ -60,7 +60,7 @@ function isObject(any) {
  *    判断目标是否是非函数的对象。
  */
 function isObjective(any) {
-    return isObject(any) && !isFunction(any);
+  return isObject(any) && !isFunction(any);
 }
 
 /**
