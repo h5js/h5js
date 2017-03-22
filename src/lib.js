@@ -49,10 +49,18 @@ function isFunction(any) {
 
 /**
  * isObject(any)
- *    判断目标是否是非函数的对象。
+ *    判断目标是否是对象。
  */
 function isObject(any) {
-  return Object(any) === any;    // typeof any === 'object' && any !== nil;
+  return Object(any) === any;
+}
+
+/**
+ * isObjective(any)
+ *    判断目标是否是非函数的对象。
+ */
+function isObjective(any) {
+    return isObject(any) && !isFunction(any);
 }
 
 /**
