@@ -77,5 +77,6 @@ it('Array:', function(it){
     it.should(reduce, null).throw();
   });
 
-  it('end.');
+
+  it.sum();
 });

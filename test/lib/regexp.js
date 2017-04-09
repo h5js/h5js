@@ -4,5 +4,5 @@ it('RegExp:', function(it){
     it.should(scan, null).throw();
   });
 
-  it('end.');
+  it.sum();
 });

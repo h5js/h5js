@@ -27,5 +27,5 @@ it('String:', function(it){
     it.should(replace, null, '', '').throw();
   });
 
-  it('end.');
+  it.sum();
 });

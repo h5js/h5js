@@ -7,5 +7,6 @@ it('Error:', function(it){
     it.should(Error('%s %d oops%s', 'Wow', 404, '!').message).equal('Wow 404 oops!');
   });
 
-  it('end.');
+
+  it.sum();
 });

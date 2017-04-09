@@ -31,5 +31,5 @@ it('Object:', function(it){
 
   });
 
-  it('end.');
+  it.sum();
 });
