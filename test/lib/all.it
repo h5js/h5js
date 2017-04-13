@@ -1,0 +1,6 @@
+it.go([
+  '../../src/lib.js',
+  'function.js',
+  'object.js',
+  'string.js'
+]);

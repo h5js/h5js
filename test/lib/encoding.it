@@ -1,0 +1,1 @@
+it.go(['../../src/lib.js', 'encoding.js']);
