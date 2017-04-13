@@ -944,17 +944,18 @@
       www: "\u001b[2m\u001b[37m",
       ww: "\u001b[0m\u001b[37m",
       w: "\u001b[1m\u001b[37m"
-    }
+    };
 
     it.go = function(files) {
       var trace = getTrace(Error(), 1);
-      go(run(trace.path, files));
-    }
+      return go(run(trace.path, files));
+    };
 
     module.exports = it;
   }
 
   function* run(cwd, files) {
+    var _source = source;
     try {
       for(var i=0, file; file = files[i]; i++) {
         file = purl(file, cwd);
@@ -969,7 +970,7 @@
       }
     }
     finally {
-      source = '';
+      source = _source;
     }
   }
 
