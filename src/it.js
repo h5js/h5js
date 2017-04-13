@@ -7,6 +7,7 @@
   /** 基础支持: ----------------------------------------------------------------------------------------
    *
    */
+  var undefined;
 
   /** --------------------------------------------------------------------------
    * Function
@@ -153,14 +154,17 @@
   /** 扩展支持: ----------------------------------------------------------------------------------------
    *
    */
-
+  var source;
+  var reEval = /eval at run [^<]*<anonymous>/g;
   var reTraces = /(?:https?:\/\/[\w.-]+(?::\d+)?|)[\w./-]+(?:\?.*|):\d+:\d+/g;
   var reTrace = /((?:https?:\/\/[\w.-]+(?::\d+)?|)[\w./-]+(?:\?.*|)):(\d+):(\d+)/;
-  // var reTrace = /(((?:https?:\/\/\w+(?:(?:\.\w+)*(?::\d+))?)?(?:\/\w+(?:\.\w+)*)+)(?:\?[^#]*)?)(?:#.*)?:(\d+):(\d+)/;
   /** 获取错误追踪信息 */
   function getTrace(err, level) {
-    var ms, trace, codes;
-    if (ms = match(err.stack, reTraces)) {
+    var trace = err.stack, ms, codes;
+    if(source) {
+      trace = replace(trace, reEval, source);
+    }
+    if (ms = match(trace, reTraces)) {
       if (!isInteger(level)) level = 0;
       if ((ms = ms[level]) && (ms = match(ms, reTrace))) {
         var path = ms[1], row = ms[2] - 1, col = ms[3] - 1;
@@ -232,14 +236,14 @@
   /** 运行机制: ----------------------------------------------------------------------------------------
    *
    */
-  function go(gen, ms) {
+  function go(gen, limit) {
     return isGenerator(gen) ? new Promise(function (resolve, reject) {
       var state, timer;
-      if (ms > 0) {
+      if (limit > 0) {
         timer = setTimeout(function () {
           gen.done = 1;
-          reject(ms);
-        }, ms);
+          reject(limit);
+        }, limit);
       }
 
       next();
@@ -271,6 +275,7 @@
           }
         }
         else if (state.done) {
+          clearTimeout(timer);
           gen.done = 1;
           resolve(value);
         }
@@ -301,89 +306,118 @@
   /** 测试机制: ----------------------------------------------------------------------------------------
    *
    */
-  function newIt(ident, kick, upms) {
-    var me = create(itProto);
-    me.kick = kick;
-    me.ident = ident;
-    me.its = [];
-    me.asserts = [];
+  function newIt(ident, kick, life, ms) {
+    it.kick = kick;
+    it.life = life;
+    it.ms = ms;
+    it.ident = ident;
+    it.its = [];
+    it.asserts = [];
 
-    function it(topic, any, ms) {
-      var tick = now(), err;
-      if (upms) {
-        var left = upms - (tick - kick);
-        if (left <= 0) return;  // 已超时，不再进行测试
-        if (!ms) {
-          ms = left;
-        }
-        else if (ms > left) {
-          ms = left;
-        }
+
+    return setPrototype(it, itProto);
+
+    function it() {
+      var kick = now(), life = it.life - (kick - it.kick);
+      if(life <= 0)
+        throw it.ms;  // 若上层 it 已超时，抛出超时异常给上层。
+
+      var args = arguments;
+      if(!args.length) return Promise.resolve();
+
+      var ms = isInteger(args[0]) ? args[0] : isInteger(args[1]) ? args[1] : undefined;
+
+      var topic = isString(args[0]) ? args[0] : undefined;
+      if(topic !== undefined) {
+        var limit = ms !== undefined ? ' ('+ms+'ms)' : '';
+        print(it, '#;%s#b;%s#;', topic, limit);
       }
-      else if (ms) {
-        err = ms;
-      }
-      me.tick = tick;
-      me.ms = ms;
-      print(me, '#;%s', topic);
-      push(me.its, it = newIt(me.ident + '  ', tick, ms));
-      if (isFunction(any)) {
-        if (isGeneratorFunction(any)) {
-          if (ms) {
-            any = (go(any(it), ms, err));
-          }
-          else {
-            any = go(any(it));
-          }
-          any.then(bind(fulfilled, me), bind(rejected, me));
+
+      var any = isString(args[0]) ? isInteger(args[1]) ? args[2] : args[1] : isInteger(args[0]) ? args[1] : args[0];
+
+
+      if(isFunction(any)) {
+        if(life > ms) {
+          life = ms;
         }
-        else if (isAsyncFunction(any)) {
-          any = any(it).then(bind(fulfilled, me), bind(rejected, me));
+        var sub = newIt(ident + '  ', kick, life || ms, ms);
+        push(it.its, sub);
+
+        if(isGeneratorFunction(any) || isAsyncFunction(any)) {
+          any = any(sub);
+        }
+        else if(any.length>1) {
+          any = new Promise(function(resolve, reject){
+            var timer = life || ms;
+            if(timer !== undefined) {
+              timer = setTimeout(function(){
+                timer = null;
+                reject(sub.ms);
+              }, timer);
+            }
+            any(sub, done, to);
+
+            function done(value) {
+              timer = clearTimeout(timer);
+              resolve(value);
+            }
+
+            function to(any){
+              return function(){
+                if(timer !== null)
+                  return apply(any, this, arguments);
+              }
+            }
+          }).then(fulfilled, rejected);
         }
         else {
           try {
-            any = any(it);
-            call(fulfilled, me);
-          } catch (err) {
-            call(rejected, me, err);
+            any = any(sub);
+            any = fulfilled(any);
           }
+          catch (err) {
+            rejected(any = err);
+          }
+          return any;
         }
       }
-      else if (isGenerator(any)) {
-        if (ms) {
-          any = go(any, ms, err);
-        }
-        else {
-          any = go(any);
-        }
-        any.then(bind(fulfilled, it), bind(rejected, it));
+
+      if(isGenerator(any)) {
+        any = go(any, ms).then(fulfilled, rejected);
       }
+      else if(isPromise(any)) {
+        any = any.then(fulfilled, rejected);
+      }
+      else if(isFunction(any)){
+      }
+      else if( ms !== undefined ) {
+        any = it.delay(ms, any).then(fulfilled, rejected);
+      }
+
       return any;
     }
 
-    return setPrototype(bind(it, me), me);
-  }
+    /** 测试履约 */
+    function fulfilled(value) {
+      return value;
+    }
 
-  /** 测试履约 */
-  function fulfilled(value) {
-    return value;
-  }
+    /** 测试被拒 */
+    function rejected (err) {
+      if (isInteger(err)) {   // 超时拒绝
+        print(it, '#rr;Timeout %dms!#;', err);
+      }
+      else if (isError(err)) {  // 代码故障
+        sorry(it, err);
+      }
+      else if (err === undefined) { // 静默异常
+      }
+      else {
+        print(it, '#rr;%s#;', String(err));
+      }
+    }
 
-  /** 测试被拒 */
-  var rejected = function (err) {
-    var me = this;
-    if (isInteger(err)) {   // 超时拒绝
-      print(me, '#rr;Timeout %dms!', err);
-    }
-    else if (isError(err)) {  // 代码故障
-      sorry(me, err);
-    }
-    else if (err === undefined) { // 静默异常
-    }
-    else {
-      print(me, '#rr;%s', String(err));
-    }
-  };
+  }
 
   /** it 原型: ----------------------------------------------------------------------------------------
    *
@@ -393,49 +427,44 @@
       this.trace = getTrace(Error(), 1);
     },
     get end() {
-      var me = this, trace = me.trace, end = getTrace(Error(), 1);
+      var it = this, trace = it.trace, end = getTrace(Error(), 1);
       if (trace && end.path === trace.path) {
         var codes = getCodes(trace.path);
         if (codes.length) {
           codes = piece(codes, trace.row + 1, end.row).join('\n');
           if (codes) {
-            codes = replace(codes, RegExp('^' + me.ident, 'gm'), '');
-            print(me, '#ccc;%s', codes);
+            codes = replace(codes, RegExp('^' + it.ident, 'gm'), '');
+            print(it, '#ccc;%s#;', codes);
           }
-
         }
       }
-      me.trace = null;
+      it.trace = null;
     },
     get as() {
-      var me = this;
+      var it = this;
       var code = getTrace(Error(), 1);
       if (code) {
-        code = replace(code.code, RegExp('^' + me.ident + '|\\s*\\bit\\.as\\b.*$', 'g'), '');
-        print(me, '#ccc;%s', code);
+        code = replace(code.code, RegExp('^' + it.ident + '|\\s*\\bit\\.as\\b.*$', 'g'), '');
+        print(it, '#ccc;%s#;', code);
       }
+    },
+    get tick() {
+      return Promise.resolve();
     },
     delay: delay,
     should: actual,
     sum: sum
   };
 
-  function delay(ms) {
-    var me = this;
-    if (me.ms) {
-      var tick = now();
-      var left = me.ms - (tick - me.tick);
-      if (left <= 0) throw undefined;  //抛出静默异常，终止后续运行！
-      if (ms > left) ms = left;
+  function delay(ms, value) {
+    var it = this;
+    if (it.life) {
+      var kick = now();
+      var life = it.life - (kick - it.kick);
+      if (life <= 0) throw it.ms;  //抛出超时静默异常，终止后续运行！
+      if (ms > life) ms = life;
     }
-    return new Promise(partial(setTimeout, [, ms])).then(function (value) {
-      if (me.ms) {
-        var tick = now();
-        var left = me.ms - (tick - me.tick);
-        if (left <= 0) throw undefined;  //抛出静默异常，终止后续运行！
-      }
-      return value;
-    });
+    return new Promise(partial(setTimeout, [, ms, value]));
   }
 
   function actual(value) {
@@ -454,26 +483,30 @@
     assert.actual = value;
     assert.args = piece(arguments, 1);
     assert.ms = 0;
-    assert.tick = now();
+    assert.kick = now();
     return assert;
   }
 
   function sum() {
     var sum = sumit(this);
     var total = sum.total, done = sum.done, okey = sum.okey, fail = sum.fail, miss = sum.miss, ms = sum.ms;
-    var doneRate = Math.floor(done/total*100);
-    var okeyRate = Math.floor(okey/done*100);
-    var failRate = Math.ceil(fail/done*100);
-    var missRate = Math.ceil(miss/total*100);
+    var doneRate = rate(Math.floor(done/total*100));
+    var okeyRate = rate(Math.floor(okey/done*100));
+    var failRate = rate(Math.ceil(fail/done*100));
+    var missRate = rate(Math.ceil(miss/total*100));
 
-    print(this, '#b;✈#; Total asserts: #b;%d#;, done: #%s;%d(%d%)#;, okey: #%s;%d(%d%)#;, fail: #%s;%d(%d%)#;, missing: #%s;%d(%d%)#; (in #b;%dms#;).',
+    print(this, '#b;✈#; Total asserts: #b;%d#;, done: #%s;%d%s#;, okey: #%s;%d%s#;, fail: #%s;%d%s#;, missing: #%s;%d%s#; (in #b;%dms#;).',
       total, miss?'rr':'gg', done, doneRate, fail?'rr':'gg', okey, okeyRate, fail?'rr':'gg', fail, failRate, miss?'rr':'gg', miss, missRate, ms
     );
+
+    function rate(value) {
+      return isInteger(value) ? '(' + value + '%)' : '';
+    }
   }
 
-  function sumit(me){
+  function sumit(it){
     var total, done = 0, okey = 0, fail = 0, miss = 0, ms = 0, i;
-    var asserts = me.asserts, assert;
+    var asserts = it.asserts, assert;
     for (i = 0; assert = asserts[i]; i++) {
       switch (assert.state) {
         case 1 :
@@ -491,15 +524,15 @@
     }
     total = i;
 
-    var its = me.its, it;
-    for(i = 0; it = its[i]; i++) {
-      var sum = sumit(it);
-      total += sum.total;
-      done += sum.done;
-      okey += sum.okey;
-      fail += sum.fail;
-      miss += sum.miss;
-      ms += sum.ms;
+    var its = it.its;
+    for(i = 0; i<its.length; i++) {
+      var sub = sumit(its[i]);
+      total += sub.total;
+      done += sub.done;
+      okey += sub.okey;
+      fail += sub.fail;
+      miss += sub.miss;
+      ms += sub.ms;
     }
 
     return {
@@ -600,7 +633,7 @@
     /** exception: */
     throw: function (err) {
       var me = this;
-      me.ms = now() - me.tick;
+      me.ms = now() - me.kick;
       var actual = me.actual;
       if (isFunction(actual)) {
         try {
@@ -629,7 +662,7 @@
   function NOT(me) { return me._not ? ' not' : '' }
 
   function be(me, assert, something) {
-    me.ms = now() - me.tick;
+    me.ms = now() - me.kick;
     if (!(me.assert = !!assert ^ me._not)) me.note = 'expect ' + toJson(me.actual) + NOT(me) + ' be ' + something + '.';
     report(me);
     return nop;
@@ -637,13 +670,13 @@
 
   function equal(value) {
     var me = this;
-    me.ms = now() - me.tick;
+    me.ms = now() - me.kick;
     compare(me, me.actual == value, 'equal to', value);
   }
 
   function equiv(value) {
     var me = this;
-    me.ms = now() - me.tick;
+    me.ms = now() - me.kick;
     compare(me, equiv(me.actual, value), 'equivalent to', value);
 
     function equiv(a, b) {
@@ -670,7 +703,7 @@
 
   function same(value) {
     var me = this;
-    me.ms = now() - me.tick;
+    me.ms = now() - me.kick;
     compare(me, me.actual === value, 'same to', value);
   }
 
@@ -684,16 +717,16 @@
    */
   function report(me) {
     if (me.assert) {
-      print(me, '#g;✔ %s', me.topic);
+      print(me, '#g;✔ %s#;', me.topic);
       me.state = 1;
     }
     else {
-      print(me, '#r;✘ %s', me.topic);
+      print(me, '#r;✘ %s#;', me.topic);
       if (me.note) {
-        print(me, '#rr;%s', ident(me.note, '  '));
+        print(me, '#rr;%s#;', ident(me.note, '  '));
       }
       if (me.loc) {
-        print(me, '#rr;%s', ident(me.loc, '  '));
+        print(me, '#rr;%s#;', ident(me.loc, '  '));
       }
       me.state = -1;
     }
@@ -706,7 +739,7 @@
     if (trace) {
       err += ident('\n' + trace.code + '\n' + dup(' ', trace.col) + '^' + '\nat ' + trace.loc, '  ');
     }
-    print(me, '#r;⦸ %s', err);
+    print(me, '#r;⦸ %s#;', err);
     me.state = -1;
   }
 
@@ -784,14 +817,38 @@
   /** 运行环境: ----------------------------------------------------------------------------------------
    *
    */
+  var cacheCode = {};
+
+  function getCode(path) {
+    var code;
+    if (cacheCode.hasOwnProperty(path)) {
+      code = cacheCode[path];
+    }
+    else {
+      code = cacheCode[path] = get(path);
+    }
+    return code;
+  }
+
+  var cacheCodes = {};
+
+  function getCodes(path) {
+    var codes;
+    if (cacheCodes.hasOwnProperty(path)) {
+      codes = cacheCodes[path];
+    }
+    else {
+      codes = cacheCodes[path] = getCode(path).split('\n');
+    }
+    return codes;
+  }
+
   var it = newIt('');
   var get;
   var colors;
 
   if (global.window) {
     var script = document.scripts[document.scripts.length - 1];
-    var name = script.getAttribute('var');
-    if (name) global[name] = it;
 
     get = function (path) {
       var http = new XMLHttpRequest;
@@ -845,38 +902,17 @@
       ww: "color:lightgrey",
       w: "color:ghostwhite;font-weight:900",
     }
+
+    var name = script.getAttribute('name');
+    if (name) global[name] = it;
+    var files = script.getAttribute('files');
+    if(files){
+      files = split(files, /\s*,\s*/);
+      go(run(location.href, files));
+    }
+
   }
   else {
-    var reEval = /eval at it.run [^<]*<anonymous>/g;
-
-    it.purl = purl;
-    it.run = function (file) {
-      var _Error = Error;
-      Error = function () {
-        var error = apply(_Error, undefined, arguments);
-        var stack = error.stack.replace(reEval, file);
-        stack = stack.split('\n');
-        splice(stack, 1, 1);
-        error.stack = stack.join('\n');
-        return error;
-      };
-
-      var _rejected = rejected;
-      rejected = function (err) {
-        err.stack = err.stack.replace(reEval, file);
-        call(_rejected, this, err);
-      };
-
-      try {
-        return eval.call(undefined, getCode(file));
-      }
-      finally {
-        rejected = _rejected;
-        Error = _Error;
-      }
-    };
-
-    module.exports = it;
     var fs = require('fs');
     get = function (path) {
       return fs.readFileSync(path, {encoding: 'utf-8'});
@@ -910,33 +946,33 @@
       w: "\u001b[1m\u001b[37m"
     }
 
+    it.go = function(files) {
+      var trace = getTrace(Error(), 1);
+      go(run(trace.path, files));
+    }
+
+    module.exports = it;
   }
 
-  var cacheCode = {};
-
-  function getCode(path) {
-    var code;
-    if (cacheCode.hasOwnProperty(path)) {
-      code = cacheCode[path];
+  function* run(cwd, files) {
+    try {
+      for(var i=0, file; file = files[i]; i++) {
+        file = purl(file, cwd);
+        var code = getCode(file);
+        if(global.window) {
+          code += '\n//# sourceURL=' + file;
+        }
+        else {
+          source = file;
+        }
+        yield call(eval, undefined, code);
+      }
     }
-    else {
-      code = cacheCode[path] = get(path);
+    finally {
+      source = '';
     }
-    return code;
   }
 
-  var cacheCodes = {};
-
-  function getCodes(path) {
-    var codes;
-    if (cacheCodes.hasOwnProperty(path)) {
-      codes = cacheCodes[path];
-    }
-    else {
-      codes = cacheCodes[path] = getCode(path).split('\n');
-    }
-    return codes;
-  }
 
 })(function modulize(module, exports) {
   'use strict';
