@@ -1,0 +1,4 @@
+it.go([
+  '../../src/lib.js', '../../src/vary.js',
+  'vary.js'
+]);
